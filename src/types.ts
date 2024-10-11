@@ -9,23 +9,25 @@ export type Options = {
   env?: boolean | string
 }
 
+export enum FieldType {
+  File = "file",
+  Text = "text",
+  Number = "number",
+  Bool = "bool",
+  Email = "email",
+  Url = "url",
+  Date = "date",
+  Select = "select",
+  Json = "json",
+  Relation = "relation",
+  User = "user",
+  Editor = "editor",
+}
+
 export type FieldSchema = {
   id: string
   name: string
-  type:
-    | "text"
-    | "file"
-    | "text"
-    | "number"
-    | "bool"
-    | "email"
-    | "url"
-    | "date"
-    | "select"
-    | "json"
-    | "relation"
-    | "user"
-    | "editor"
+  type: FieldType
   system: boolean
   required: boolean
   unique: boolean

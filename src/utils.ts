@@ -15,6 +15,27 @@ export function toPascalCase(str: string) {
     .replace(/[^\p{L}\d]/giu, "")
 }
 
+export function toSnakeCase(w: string) {
+  return w
+    .replace(/\W+/g, " ")
+    .split(/ |\B(?=[A-Z])/)
+    .map((word) => word.toLowerCase())
+    .join("_")
+}
+
+export function toScreamingSnakeCase(w: string) {
+  return toSnakeCase(w).toUpperCase()
+}
+
+export function toTitleCase(str: string) {
+  return toScreamingSnakeCase(str)
+    .replace("_", " ")
+    .replace(
+      /\w\S*/g,
+      (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+    )
+}
+
 export function sanitizeFieldName(name: string) {
   // If the first character is a number, wrap it in quotes to pass typecheck
   return !isNaN(parseFloat(name.charAt(0))) ? `"${name}"` : name

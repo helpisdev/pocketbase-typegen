@@ -1,45 +1,56 @@
 import {
   ALIAS_TYPE_DEFINITIONS,
-  ALL_RECORD_RESPONSE_COMMENT,
   TYPED_POCKETBASE_COMMENT,
   AUTH_SYSTEM_FIELDS_DEFINITION,
   BASE_SYSTEM_FIELDS_DEFINITION,
   EXPAND_GENERIC_NAME,
   EXPORT_COMMENT,
   RECORD_TYPE_COMMENT,
-  RESPONSE_TYPE_COMMENT,
   IMPORTS,
 } from "./constants"
 import { CollectionRecord, FieldSchema } from "./types"
 import {
+  createCollectionColumns,
+  createCollectionColumnsMap,
   createCollectionEnum,
+  createCollectionFieldsDetailsFuncMapper,
   createCollectionRecords,
-  createCollectionResponses,
   createTypedPocketbase,
 } from "./collections"
-import { createSelectOptions, createTypeField } from "./fields"
 import {
-  getGenericArgStringForRecord,
-  getGenericArgStringWithDefault,
-} from "./generics"
+  createSelectOptions,
+  createTypeField,
+  createTypeColumn,
+  createColumnsArray,
+  fields,
+  createRecordFieldsDetails,
+} from "./fields"
+import { getGenericArgStringWithDefault } from "./generics"
 import { getSystemFields, toPascalCase } from "./utils"
+import { filtering } from "./filtering"
+import { sorting } from "./sorting"
 
 type GenerateOptions = {
   sdk: boolean
 }
 
-export function generate(results: Array<CollectionRecord>, options: GenerateOptions): string {
+export function generate(
+  results: Array<CollectionRecord>,
+  options: GenerateOptions
+): string {
   const collectionNames: Array<string> = []
   const recordTypes: Array<string> = []
-  const responseTypes: Array<string> = [RESPONSE_TYPE_COMMENT]
+  const collectionFieldsDetails: Array<string> = []
 
   results
     .sort((a, b) => (a.name <= b.name ? -1 : 1))
     .forEach((row) => {
       if (row.name) collectionNames.push(row.name)
       if (row.schema) {
-        recordTypes.push(createRecordType(row.name, row.schema))
-        responseTypes.push(createResponseType(row))
+        recordTypes.push(createRecordType(row))
+        collectionFieldsDetails.push(
+          createRecordFieldsDetails(row.name, row.schema, row.type)
+        )
       }
     })
   const sortedCollectionNames = collectionNames
@@ -53,53 +64,45 @@ export function generate(results: Array<CollectionRecord>, options: GenerateOpti
     AUTH_SYSTEM_FIELDS_DEFINITION,
     RECORD_TYPE_COMMENT,
     ...recordTypes,
-    responseTypes.join("\n"),
-    ALL_RECORD_RESPONSE_COMMENT,
+    createCollectionColumns(sortedCollectionNames),
+    createCollectionColumnsMap(sortedCollectionNames),
     createCollectionRecords(sortedCollectionNames),
-    createCollectionResponses(sortedCollectionNames),
     options.sdk && TYPED_POCKETBASE_COMMENT,
-    options.sdk && createTypedPocketbase(sortedCollectionNames)
+    options.sdk && createTypedPocketbase(sortedCollectionNames),
+    fields,
+    createCollectionFieldsDetailsFuncMapper(sortedCollectionNames),
+    ...collectionFieldsDetails,
+    filtering,
+    sorting,
   ]
 
-  return fileParts
-    .filter(Boolean)
-    .join("\n\n") + '\n'
+  return fileParts.filter(Boolean).join("\n\n") + "\n"
 }
 
 export function createRecordType(
-  name: string,
-  schema: Array<FieldSchema>
+  collectionSchemaEntry: CollectionRecord
 ): string {
+  const { name, schema, type } = collectionSchemaEntry
+  const systemFields = getSystemFields(type)
+  const expandArgString = `<T${EXPAND_GENERIC_NAME}>`
   const selectOptionEnums = createSelectOptions(name, schema)
   const typeName = toPascalCase(name)
   const genericArgs = getGenericArgStringWithDefault(schema, {
-    includeExpand: false,
+    includeExpand: true,
   })
   const fields = schema
     .map((fieldSchema: FieldSchema) => createTypeField(name, fieldSchema))
     .sort()
     .join("\n")
 
-  return `${selectOptionEnums}export type ${typeName}Record${genericArgs} = ${
+  const columns = createTypeColumn(name, schema, type)
+  const columnsArray = createColumnsArray(name, schema, type)
+
+  return `${columns}\n\n${columnsArray}\n\n${selectOptionEnums}export interface ${typeName}Record${genericArgs} extends ${systemFields}${expandArgString} ${
     fields
       ? `{
 ${fields}
 }`
       : "never"
   }`
-}
-
-export function createResponseType(
-  collectionSchemaEntry: CollectionRecord
-): string {
-  const { name, schema, type } = collectionSchemaEntry
-  const pascaleName = toPascalCase(name)
-  const genericArgsWithDefaults = getGenericArgStringWithDefault(schema, {
-    includeExpand: true,
-  })
-  const genericArgsForRecord = getGenericArgStringForRecord(schema)
-  const systemFields = getSystemFields(type)
-  const expandArgString = `<T${EXPAND_GENERIC_NAME}>`
-
-  return `export type ${pascaleName}Response${genericArgsWithDefaults} = Required<${pascaleName}Record${genericArgsForRecord}> & ${systemFields}${expandArgString}`
 }

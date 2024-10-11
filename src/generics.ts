@@ -13,12 +13,6 @@ export function getGenericArgList(schema: FieldSchema[]): string[] {
   return jsonFields
 }
 
-export function getGenericArgStringForRecord(schema: FieldSchema[]): string {
-  const argList = getGenericArgList(schema)
-  if (argList.length === 0) return ""
-  return `<${argList.map((name) => `${name}`).join(", ")}>`
-}
-
 export function getGenericArgStringWithDefault(
   schema: FieldSchema[],
   opts: { includeExpand: boolean }
