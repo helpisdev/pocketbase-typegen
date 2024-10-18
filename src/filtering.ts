@@ -18,6 +18,7 @@ export const filtering = `export enum Operand {
 }
 
 export const OPERANDS_BY_FILE_TYPE = {
+  [FieldType.Relation]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
   [FieldType.Text]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
   [FieldType.Email]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
   [FieldType.Url]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
@@ -39,6 +40,10 @@ export const OPERANDS_BY_FILE_TYPE = {
   ],
   [FieldType.Bool]: [Operand.Equal, Operand.NotEqual],
   [FieldType.Select]: [Operand.Equal, Operand.NotEqual],
+  [FieldType.File]: [],
+  [FieldType.User]: [],
+  [FieldType.Editor]: [],
+  [FieldType.Json]: [],
 };
 
 export type Operation<T extends Collections> = {
