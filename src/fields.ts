@@ -79,7 +79,7 @@ export interface FieldsDetails<TCollection extends Collections> {
   id: CollectionColumns[TCollection];
   label: string;
   type: FieldType;
-  enumValues?: any;
+  enumValues?: [string, any][];
 };`
 
 export function createTypeField(

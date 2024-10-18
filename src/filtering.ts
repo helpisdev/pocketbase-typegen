@@ -17,6 +17,30 @@ export const filtering = `export enum Operand {
   AnyOfNotLike = '?!~',
 }
 
+export const OPERANDS_BY_FILE_TYPE = {
+  [FieldType.Text]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
+  [FieldType.Email]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
+  [FieldType.Url]: [Operand.Equal, Operand.NotEqual, Operand.Like, Operand.NotLike],
+  [FieldType.Number]: [
+    Operand.Equal,
+    Operand.NotEqual,
+    Operand.GreaterThan,
+    Operand.GreaterThanOrEqual,
+    Operand.LessThan,
+    Operand.LessThanOrEqual,
+  ],
+  [FieldType.Date]: [
+    Operand.Equal,
+    Operand.NotEqual,
+    Operand.GreaterThan,
+    Operand.GreaterThanOrEqual,
+    Operand.LessThan,
+    Operand.LessThanOrEqual,
+  ],
+  [FieldType.Bool]: [Operand.Equal, Operand.NotEqual],
+  [FieldType.Select]: [Operand.Equal, Operand.NotEqual],
+};
+
 export type Operation<T extends Collections> = {
   field: keyof CollectionRecords[T];
   operand: Operand;
