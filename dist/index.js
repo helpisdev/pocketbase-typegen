@@ -243,16 +243,17 @@ var fields = `export enum FieldType {
   Editor = "editor",
 };
 
-export type Keys<TCollection extends Collections> = {
-  [K in CollectionColumns[TCollection]]: FieldsDetails<TCollection>;
+export type Keys<TCollection extends Collections, TMeta = any> = {
+  [K in CollectionColumns[TCollection]]: FieldsDetails<TCollection, TMeta>;
 };
 
-export interface FieldsDetails<TCollection extends Collections> {
+export interface FieldsDetails<TCollection extends Collections, TMeta = any> {
   id: CollectionColumns[TCollection];
   label: string;
   type: FieldType;
   enumValues?: [string, any][];
-};`;
+  meta?: TMeta;
+}`;
 function createTypeField(collectionName, fieldSchema) {
   let typeStringOrFunc;
   if (!(fieldSchema.type in pbSchemaTypescriptMap)) {
@@ -272,7 +273,8 @@ function createTypeColumn(collectionName, schema, type) {
   return `export type ${toPascalCase(collectionName)}Column = ${schema.map((item) => `'${sanitizeFieldName(item.name)}'`).join(" | ")} | ${base}${type === "auth" ? ` | ${auth}` : ""};`;
 }
 function createRecordFieldsDetails(collectionName, schema, type) {
-  const columnsName = `${toPascalCase(collectionName)}Column`;
+  const collection = toPascalCase(collectionName);
+  const columnsName = `${collection}Column`;
   const base = ["id", "created", "updated"];
   const baseFields = [
     `id: { id: 'id' as ${columnsName}, label: '${toTitleCase(
@@ -300,9 +302,8 @@ function createRecordFieldsDetails(collectionName, schema, type) {
       "verified"
     )}', type: FieldType.Bool }`
   ];
-  const returnType = `(labels: { [K in ${columnsName}]?: string }) => Keys<Collections.${toPascalCase(
-    collectionName
-  )}>`;
+  const columnAccessor = `[K in ${columnsName}]?`;
+  const returnType = `<TMeta = any>(labels: { ${columnAccessor}: string }, meta: { ${columnAccessor}: TMeta }) => Keys<Collections.${collection}, TMeta>`;
   let fields2 = schema.map((item) => {
     const name = sanitizeFieldName(item.name);
     const isEnum = item.type === "select" /* Select */;
@@ -313,43 +314,54 @@ function createRecordFieldsDetails(collectionName, schema, type) {
     const details = `{ id: '${name}' as ${columnsName}, label: '${toTitleCase(
       name
     )}', type: FieldType.${toPascalCase(item.type)}${enumValues} }`;
-    return `    ${name}: ${details},`;
-  }).join("\n");
-  baseFields.forEach((baseField) => fields2 += baseField + ",\n");
+    return `    ${name}: ${details}`;
+  }).join(",\n");
+  baseFields.forEach((baseField) => fields2 += ",\n    " + baseField);
   if (type === "auth") {
-    authFields.forEach((authField) => fields2 += authField + ",\n");
+    authFields.forEach((authField) => fields2 += ",\n    " + authField);
   }
   const funcName = `${collectionName}FieldsDetails`;
-  const argType = schema.map((item) => {
+  const labelParams = schema.map((item) => {
     return `${sanitizeFieldName(item.name)}?: string`;
   });
-  const labels = schema.map((item) => {
+  const metaParams = schema.map((item) => {
+    return `${sanitizeFieldName(item.name)}?: TMeta`;
+  });
+  const fieldStatement = (name) => [
+    `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`,
+    `fields.${name}.meta = meta.${name};`
+  ];
+  const fieldItems = schema.map((item) => {
     const name = sanitizeFieldName(item.name);
-    const statement = `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`;
-    return statement;
+    return fieldStatement(name);
   });
   base.forEach((name) => {
-    argType.push(`${name}?: string`);
-    labels.push(
-      `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`
-    );
+    labelParams.push(`${name}?: string`);
+    metaParams.push(`${name}?: TMeta`);
+    fieldItems.push(fieldStatement(name));
   });
   if (type === "auth") {
     auth.forEach((name) => {
-      argType.push(`${name}?: string`);
-      labels.push(
-        `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`
-      );
+      labelParams.push(`${name}?: string`);
+      metaParams.push(`${name}?: TMeta`);
+      fieldItems.push(fieldStatement(name));
     });
   }
   const returnStatement = `
-  return (labels: { ${argType.join(", ")} }) => {
-    ${labels.join("\n    ")}
+  return <TMeta = any>(
+    labels: {
+      ${labelParams.join(",\n      ")}
+    },
+    meta: {
+      ${metaParams.join(",\n      ")}
+    }
+  ) => {
+    ${fieldItems.flat().join("\n    ")}
     return fields;
   };
 `;
   return `export function ${funcName}(): ${returnType} {
-  const fields = {
+  const fields: Keys<Collections.${collection}> = {
 ${fields2}
   }
 ${returnStatement}}`;
