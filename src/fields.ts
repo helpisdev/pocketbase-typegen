@@ -159,7 +159,7 @@ export function createRecordFieldsDetails(
     )}', type: FieldType.Bool }`,
   ]
   const columnAccessor = `[K in ${columnsName}]?`
-  const returnType = `<TMeta = any>(labels: { ${columnAccessor}: string }, meta: { ${columnAccessor}: TMeta }) => Keys<Collections.${collection}, TMeta>`
+  const returnType = `<TMeta = any>(labels: { ${columnAccessor}: string }, meta?: { ${columnAccessor}: TMeta }) => Keys<Collections.${collection}, TMeta>`
   let fields = schema
     .map((item) => {
       const name = sanitizeFieldName(item.name)
