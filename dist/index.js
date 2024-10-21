@@ -329,7 +329,7 @@ function createRecordFieldsDetails(collectionName, schema, type) {
   });
   const fieldStatement = (name) => [
     `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`,
-    `fields.${name}.meta = meta.${name};`
+    `fields.${name}.meta = meta?.${name};`
   ];
   const fieldItems = schema.map((item) => {
     const name = sanitizeFieldName(item.name);
@@ -352,7 +352,7 @@ function createRecordFieldsDetails(collectionName, schema, type) {
     labels: {
       ${labelParams.join(",\n      ")}
     },
-    meta: {
+    meta?: {
       ${metaParams.join(",\n      ")}
     }
   ) => {

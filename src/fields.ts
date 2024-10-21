@@ -190,7 +190,7 @@ export function createRecordFieldsDetails(
 
   const fieldStatement = (name: string) => [
     `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`,
-    `fields.${name}.meta = meta.${name};`,
+    `fields.${name}.meta = meta?.${name};`,
   ]
 
   const fieldItems = schema.map((item) => {
@@ -215,7 +215,7 @@ export function createRecordFieldsDetails(
     labels: {
       ${labelParams.join(",\n      ")}
     },
-    meta: {
+    meta?: {
       ${metaParams.join(",\n      ")}
     }
   ) => {
