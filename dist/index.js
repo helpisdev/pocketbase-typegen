@@ -303,7 +303,13 @@ function createRecordFieldsDetails(collectionName, schema, type) {
     )}', type: FieldType.Bool }`
   ];
   const columnAccessor = `[K in ${columnsName}]?`;
-  const returnType = `<TMeta = any>(labels: { ${columnAccessor}: string }, meta: { ${columnAccessor}: TMeta }) => Keys<Collections.${collection}, TMeta>`;
+  const returnType = `<TMeta = any>({
+  labels,
+  meta,
+}: {
+  labels?: { ${columnAccessor}: string };
+  meta?: { ${columnAccessor}: TMeta };
+}) => Keys<Collections.${collection}, TMeta>`;
   let fields2 = schema.map((item) => {
     const name = sanitizeFieldName(item.name);
     const isEnum = item.type === "select" /* Select */;
@@ -329,7 +335,7 @@ function createRecordFieldsDetails(collectionName, schema, type) {
   });
   const fieldStatement = (name) => [
     `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`,
-    `fields.${name}.meta = meta?.${name};`
+    `fields.${name}.meta = meta.${name};`
   ];
   const fieldItems = schema.map((item) => {
     const name = sanitizeFieldName(item.name);
@@ -349,11 +355,16 @@ function createRecordFieldsDetails(collectionName, schema, type) {
   }
   const returnStatement = `
   return <TMeta = any>(
-    labels: {
-      ${labelParams.join(",\n      ")}
-    },
-    meta?: {
-      ${metaParams.join(",\n      ")}
+    {
+      labels = {},
+      meta = {},
+    }: {
+      labels?: {
+        ${labelParams.join(",\n        ")}
+      },
+      meta?: {
+        ${metaParams.join(",\n        ")}
+      },
     }
   ) => {
     ${fieldItems.flat().join("\n    ")}
