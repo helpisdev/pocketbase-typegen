@@ -71,16 +71,19 @@ export const fields = `export enum FieldType {
   Editor = "editor",
 };
 
-export type Keys<TCollection extends Collections, TMeta = any> = {
-  [K in CollectionColumns[TCollection]]: FieldsDetails<TCollection, TMeta>;
+export type CollectionInfo<TCollection extends Collections, TFieldMeta = any, TCollectionMeta = any> = {
+  fields: {
+    [K in CollectionColumns[TCollection]]: FieldDetails<TCollection, TFieldMeta>;
+  };
+  meta?: TCollectionMeta;
 };
 
-export interface FieldsDetails<TCollection extends Collections, TMeta = any> {
+export interface FieldDetails<TCollection extends Collections, TFieldMeta = any> {
   id: CollectionColumns[TCollection];
   label: string;
   type: FieldType;
   enumValues?: [string, any][];
-  meta?: TMeta;
+  meta?: TFieldMeta;
 }`
 
 export function createTypeField(
@@ -159,13 +162,15 @@ export function createRecordFieldsDetails(
     )}', type: FieldType.Bool }`,
   ]
   const columnAccessor = `[K in ${columnsName}]?`
-  const returnType = `<TMeta = any>({
+  const returnType = `<TFieldMeta = any, TCollectionMeta = any>({
   labels,
-  meta,
+  fieldMeta,
+  collectionMeta,
 }: {
   labels?: { ${columnAccessor}: string };
-  meta?: { ${columnAccessor}: TMeta };
-}) => Keys<Collections.${collection}, TMeta>`
+  fieldMeta?: { ${columnAccessor}: TFieldMeta };
+  collectionMeta?: TCollectionMeta;
+}) => CollectionInfo<Collections.${collection}, TFieldMeta, TCollectionMeta>`
   let fields = schema
     .map((item) => {
       const name = sanitizeFieldName(item.name)
@@ -179,24 +184,24 @@ export function createRecordFieldsDetails(
       const details = `{ id: '${name}' as ${columnsName}, label: '${toTitleCase(
         name
       )}', type: FieldType.${toPascalCase(item.type)}${enumValues} }`
-      return `    ${name}: ${details}`
+      return `      ${name}: ${details}`
     })
     .join(",\n")
-  baseFields.forEach((baseField) => (fields += ",\n    " + baseField))
+  baseFields.forEach((baseField) => (fields += ",\n      " + baseField))
   if (type === "auth") {
-    authFields.forEach((authField) => (fields += ",\n    " + authField))
+    authFields.forEach((authField) => (fields += ",\n      " + authField))
   }
-  const funcName = `${collectionName}FieldsDetails`
+  const funcName = `${collectionName}Info`
   const labelParams = schema.map((item) => {
     return `${sanitizeFieldName(item.name)}?: string`
   })
   const metaParams = schema.map((item) => {
-    return `${sanitizeFieldName(item.name)}?: TMeta`
+    return `${sanitizeFieldName(item.name)}?: TFieldMeta`
   })
 
   const fieldStatement = (name: string) => [
-    `fields.${name}.label = labels['${name}'] ?? fields.${name}.label;`,
-    `fields.${name}.meta = meta.${name};`,
+    `fields.fields.${name}.label = labels['${name}'] ?? fields.fields.${name}.label;`,
+    `fields.fields.${name}.meta = fieldMeta.${name};`,
   ]
 
   const fieldItems = schema.map((item) => {
@@ -206,37 +211,41 @@ export function createRecordFieldsDetails(
 
   base.forEach((name) => {
     labelParams.push(`${name}?: string`)
-    metaParams.push(`${name}?: TMeta`)
+    metaParams.push(`${name}?: TFieldMeta`)
     fieldItems.push(fieldStatement(name))
   })
   if (type === "auth") {
     auth.forEach((name) => {
       labelParams.push(`${name}?: string`)
-      metaParams.push(`${name}?: TMeta`)
+      metaParams.push(`${name}?: TFieldMeta`)
       fieldItems.push(fieldStatement(name))
     })
   }
   const returnStatement = `
-  return <TMeta = any>(
+  return <TFieldMeta = any, TCollectionMeta = any>(
     {
       labels = {},
-      meta = {},
+      fieldMeta = {},
+      collectionMeta,
     }: {
       labels?: {
         ${labelParams.join(",\n        ")}
-      },
-      meta?: {
+      };
+      fieldMeta?: {
         ${metaParams.join(",\n        ")}
-      },
+      };
+      collectionMeta?: TCollectionMeta;
     }
   ) => {
     ${fieldItems.flat().join("\n    ")}
+    fields.meta = collectionMeta;
     return fields;
   };
 `
   return (
     `export function ${funcName}(): ${returnType} {\n` +
-    `  const fields: Keys<Collections.${collection}> = {\n${fields}\n  }\n` +
+    `  const fields: CollectionInfo<Collections.${collection}> = {` +
+    `\n    fields: {\n${fields}\n    },\n  }\n` +
     `${returnStatement}` +
     `}`
   )

@@ -14,11 +14,9 @@ export function createCollectionFieldsDetailsFuncMapper(
   collectionNames: Array<string>
 ) {
   const collections = collectionNames
-    .map(
-      (name) => `\t[Collections.${toPascalCase(name)}]: ${name}FieldsDetails(),`
-    )
+    .map((name) => `\t[Collections.${toPascalCase(name)}]: ${name}Info(),`)
     .join("\n")
-  const typeString = `export const COLLECTION_FIELDS_DETAILS_MAP = {
+  const typeString = `export const COLLECTION_INFO_MAP = {
 ${collections}
 }`
   return typeString
