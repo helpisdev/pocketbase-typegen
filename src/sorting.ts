@@ -27,7 +27,7 @@ export function isValidSortFilter<
 
   return value.every((item) => {
     const column = item.slice(1) as TColumn;
-    return column in COLLECTION_COLUMNS_MAP[collection];
+    return COLLECTION_COLUMNS_MAP[collection].includes(column);
   });
 }
 
