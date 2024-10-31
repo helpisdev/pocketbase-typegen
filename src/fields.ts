@@ -162,12 +162,29 @@ export function createRecordFieldsDetails(
     )}', type: FieldType.Bool }`,
   ]
   const columnAccessor = `[K in ${columnsName}]?`
+  const enumLabels = `{
+    enumLabels?: {
+    ${schema
+      .filter((item) => item.type === FieldType.Select)
+      .map(
+        (item) =>
+          `  ${sanitizeFieldName(item.name)}: {
+        ${getOptionValues(item)
+          .map((e) => `${getSelectOptionEnumName(e)}: string`)
+          .join("\n        ")}
+      }`
+      )
+      .join("\n    ")}
+    }
+  }`
+  const hasEnums =
+    schema.find((item) => item.type === FieldType.Select) !== undefined
   const returnType = `<TFieldMeta = any, TCollectionMeta = any>({
   labels,
   fieldMeta,
   collectionMeta,
 }: {
-  labels?: { ${columnAccessor}: string };
+  labels?: { ${columnAccessor}: string }${hasEnums ? ` & ${enumLabels}` : ""};
   fieldMeta?: { ${columnAccessor}: TFieldMeta };
   collectionMeta?: TCollectionMeta;
 }) => CollectionInfo<Collections.${collection}, TFieldMeta, TCollectionMeta>`
@@ -195,18 +212,50 @@ export function createRecordFieldsDetails(
   const labelParams = schema.map((item) => {
     return `${sanitizeFieldName(item.name)}?: string`
   })
+
+  const enumLabelsParams = `
+        enumLabels?: {
+          ${schema
+            .filter((item) => item.type === FieldType.Select)
+            .map(
+              (item) =>
+                `${sanitizeFieldName(item.name)}?: {
+        ${getOptionValues(item)
+          .map((e) => `    ${getSelectOptionEnumName(e)}?: string`)
+          .join("\n        ")}
+          }`
+            )
+            .join("\n          ")}
+        }
+`
   const metaParams = schema.map((item) => {
     return `${sanitizeFieldName(item.name)}?: TFieldMeta`
   })
 
-  const fieldStatement = (name: string) => [
-    `fields.fields.${name}.label = labels['${name}'] ?? fields.fields.${name}.label;`,
-    `fields.fields.${name}.meta = fieldMeta.${name};`,
-  ]
+  const fieldStatement = (item: FieldSchema | string) => {
+    const isString = typeof item === "string"
+    const name = isString ? item : sanitizeFieldName(item.name)
+    const fields = [
+      `fields.fields.${name}.label = labels['${name}'] ?? fields.fields.${name}.label;`,
+      `fields.fields.${name}.meta = fieldMeta.${name};`,
+    ]
+    if (!isString && item.type === FieldType.Select) {
+      fields.push(
+        `fields.fields.${name}.enumValues = fields.fields.${name}.enumValues?.map(([key, value]) => {
+      const type = labels?.enumLabels?.${name}
+      if (type) {
+        return [key, type[key as keyof typeof type]]
+      }
+      return [key, value]
+    })`
+      )
+    }
+
+    return fields
+  }
 
   const fieldItems = schema.map((item) => {
-    const name = sanitizeFieldName(item.name)
-    return fieldStatement(name)
+    return fieldStatement(item)
   })
 
   base.forEach((name) => {
@@ -229,10 +278,12 @@ export function createRecordFieldsDetails(
       collectionMeta,
     }: {
       labels?: {
-        ${labelParams.join(",\n        ")}
+        ${labelParams.join("\n        ")}${
+    hasEnums ? `${enumLabelsParams}` : ""
+  }
       };
       fieldMeta?: {
-        ${metaParams.join(",\n        ")}
+        ${metaParams.join("\n        ")}
       };
       collectionMeta?: TCollectionMeta;
     }

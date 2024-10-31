@@ -304,12 +304,22 @@ function createRecordFieldsDetails(collectionName, schema, type) {
     )}', type: FieldType.Bool }`
   ];
   const columnAccessor = `[K in ${columnsName}]?`;
+  const enumLabels = `{
+    enumLabels?: {
+    ${schema.filter((item) => item.type === "select" /* Select */).map(
+    (item) => `  ${sanitizeFieldName(item.name)}: {
+        ${getOptionValues(item).map((e) => `${getSelectOptionEnumName(e)}: string`).join("\n        ")}
+      }`
+  ).join("\n    ")}
+    }
+  }`;
+  const hasEnums = schema.find((item) => item.type === "select" /* Select */) !== void 0;
   const returnType = `<TFieldMeta = any, TCollectionMeta = any>({
   labels,
   fieldMeta,
   collectionMeta,
 }: {
-  labels?: { ${columnAccessor}: string };
+  labels?: { ${columnAccessor}: string }${hasEnums ? ` & ${enumLabels}` : ""};
   fieldMeta?: { ${columnAccessor}: TFieldMeta };
   collectionMeta?: TCollectionMeta;
 }) => CollectionInfo<Collections.${collection}, TFieldMeta, TCollectionMeta>`;
@@ -333,16 +343,40 @@ function createRecordFieldsDetails(collectionName, schema, type) {
   const labelParams = schema.map((item) => {
     return `${sanitizeFieldName(item.name)}?: string`;
   });
+  const enumLabelsParams = `
+        enumLabels?: {
+          ${schema.filter((item) => item.type === "select" /* Select */).map(
+    (item) => `${sanitizeFieldName(item.name)}?: {
+        ${getOptionValues(item).map((e) => `    ${getSelectOptionEnumName(e)}?: string`).join("\n        ")}
+          }`
+  ).join("\n          ")}
+        }
+`;
   const metaParams = schema.map((item) => {
     return `${sanitizeFieldName(item.name)}?: TFieldMeta`;
   });
-  const fieldStatement = (name) => [
-    `fields.fields.${name}.label = labels['${name}'] ?? fields.fields.${name}.label;`,
-    `fields.fields.${name}.meta = fieldMeta.${name};`
-  ];
+  const fieldStatement = (item) => {
+    const isString = typeof item === "string";
+    const name = isString ? item : sanitizeFieldName(item.name);
+    const fields3 = [
+      `fields.fields.${name}.label = labels['${name}'] ?? fields.fields.${name}.label;`,
+      `fields.fields.${name}.meta = fieldMeta.${name};`
+    ];
+    if (!isString && item.type === "select" /* Select */) {
+      fields3.push(
+        `fields.fields.${name}.enumValues = fields.fields.${name}.enumValues?.map(([key, value]) => {
+      const type = labels?.enumLabels?.${name}
+      if (type) {
+        return [key, type[key as keyof typeof type]]
+      }
+      return [key, value]
+    })`
+      );
+    }
+    return fields3;
+  };
   const fieldItems = schema.map((item) => {
-    const name = sanitizeFieldName(item.name);
-    return fieldStatement(name);
+    return fieldStatement(item);
   });
   base.forEach((name) => {
     labelParams.push(`${name}?: string`);
@@ -364,10 +398,10 @@ function createRecordFieldsDetails(collectionName, schema, type) {
       collectionMeta,
     }: {
       labels?: {
-        ${labelParams.join(",\n        ")}
+        ${labelParams.join("\n        ")}${hasEnums ? `${enumLabelsParams}` : ""}
       };
       fieldMeta?: {
-        ${metaParams.join(",\n        ")}
+        ${metaParams.join("\n        ")}
       };
       collectionMeta?: TCollectionMeta;
     }
@@ -759,7 +793,7 @@ export function isValidSortFilter<
 
   return value.every((item) => {
     const column = item.slice(1) as TColumn;
-    return column in COLLECTION_COLUMNS_MAP[collection];
+    return COLLECTION_COLUMNS_MAP[collection].includes(column);
   });
 }
 
