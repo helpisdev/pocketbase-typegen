@@ -369,7 +369,7 @@ function createRecordFieldsDetails(collectionName, schema, type) {
       if (type) {
         return [key, type[key as keyof typeof type]]
       }
-      return [key, value]
+      return [key, String(value).toUpperCase()]
     })`
       );
     }
